@@ -855,6 +855,17 @@ Module.register("MMM-DynamicWeather", {
         //get the sunset and sunrise to switch between sun and moon when clear
         this.sunrise = payload.result.sys.sunrise;
         this.sunset = payload.result.sys.sunset;
+        const nowEpoch = Math.floor(Date.now() / 1000);
+        const weatherMain = payload.result.weather && payload.result.weather[0] ? payload.result.weather[0].main : "";
+        const weatherDesc = payload.result.weather && payload.result.weather[0] ? payload.result.weather[0].description : "";
+        console.info("[MMM-DynamicWeather] Weather received:", {
+          code: newCode,
+          main: weatherMain,
+          description: weatherDesc,
+          sunrise: this.sunrise,
+          sunset: this.sunset,
+          now: nowEpoch
+        });
 
         let doUpdate = false;
 
