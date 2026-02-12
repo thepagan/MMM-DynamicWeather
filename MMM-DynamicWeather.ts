@@ -28,40 +28,43 @@ class Effect {
   doDisplay: boolean = false;
 
   public getDateRanges(): string[] {
-    return this.dateRanges ? this.dateRanges : [];
+    return this.dateRanges ?? [];
   }
   public getYear(): number {
-    return this.year ? this.year : 0;
+    return this.year ?? 0;
   }
   public getMonth(): number {
-    return this.month ? this.month : 0;
+    return this.month ?? 0;
   }
   public getDay(): number {
-    return this.day ? this.day : 0;
+    return this.day ?? 0;
   }
   public getSize(): number {
-    return this.size ? this.size : 1;
+    return this.size ?? 1;
   }
   public getParticleCount(): number {
-    return this.particleCount ? this.particleCount : -1;
+    return this.particleCount ?? -1;
   }
   public getSpeedMax(): number {
-    return this.speedMax ? this.speedMax : 100;
+    return this.speedMax ?? 100;
   }
   public getSpeedMin(): number {
-    return this.speedMin ? this.speedMin : 50;
+    return this.speedMin ?? 50;
   }
   public getWeatherCode(): number {
-    return this.weatherCode ? this.weatherCode : -99;
+    return this.weatherCode ?? -99;
   }
   public getMinWeatherCode(): number {
-    return this.weatherCodeMin ? this.weatherCodeMin : 99999;
+    return this.weatherCodeMin ?? 99999;
   }
   public getMaxWeatherCode(): number {
-    return this.weatherCodeMax ? this.weatherCodeMax : -99999;
+    return this.weatherCodeMax ?? -99999;
   }
   public hasWeatherCode(): boolean {
-    return (this.weatherCode && this.weatherCode > 0) || (this.weatherCodeMin && this.weatherCodeMin > 0) || (this.weatherCodeMax && this.weatherCodeMax > 0) ? true : false;
+    const wc = this.weatherCode;
+    const wmin = this.weatherCodeMin;
+    const wmax = this.weatherCodeMax;
+    return ((wc != null && wc > 0) || (wmin != null && wmin > 0) || (wmax != null && wmax > 0)) ? true : false;
   }
   public hasHoliday(): boolean {
     return this.holiday && this.holiday.length > 0 ? true : false;
@@ -134,11 +137,11 @@ Module.register("MMM-DynamicWeather", {
     this.allEffects = [] as Effect[];
     this.url = "https://api.openweathermap.org/data/2.5/weather?appid=" + this.config.api_key;
 
-    if (this.config.lat && this.config.lon) {
+    if (this.config.lat != null && this.config.lon != null) {
       this.url += "&lat=" + this.config.lat + "&lon=" + this.config.lon;
     }
 
-    if (this.config.locationID) {
+    if (this.config.locationID != null && this.config.locationID !== 0) {
       this.url += "&id=" + this.config.locationID;
     }
 
@@ -204,7 +207,7 @@ Module.register("MMM-DynamicWeather", {
   },
   /**
    * Checks if today is within the provided date range.
-   * 
+   *
    * @param {string} dateRange - The date range in the format "YYYY-MM-DD to YYYY-MM-DD".
    * @returns {boolean} - Returns true if today is within the date range, otherwise false.
    */
@@ -213,15 +216,15 @@ Module.register("MMM-DynamicWeather", {
     const [startDateStr, endDateStr] = dateRange.split(" to ").map(s => s.trim());
     // Validate the format of the start and end dates.
     if (!startDateStr || !endDateStr || isNaN(Date.parse(startDateStr)) || isNaN(Date.parse(endDateStr))) {
-      console.error("Invalid date range format. Use 'YYYY-MM-DD to YYYY-MM-DD'.", dateRange);
-      throw new Error("Invalid date range format. Use 'YYYY-MM-DD to YYYY-MM-DD'.");
+      console.error("[MMM-DynamicWeather] Invalid date range format. Use 'YYYY-MM-DD to YYYY-MM-DD'.", dateRange);
+      return false;
     }
 
     // Parse the dates into Date objects.
     const startDate = new Date(startDateStr);
     startDate.setHours(0, 0, 0, 0);
     const endDate = new Date(endDateStr);
-    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(0, 0, 0, 0);
 
     // Get today's date with time set to midnight for comparison.
     const today = new Date();
@@ -231,7 +234,7 @@ Module.register("MMM-DynamicWeather", {
   },
   /**
    * Loops through an array of date ranges and returns true if today is within any of the ranges.
-   * 
+   *
    * @param {string[]} dateRanges - An array of date ranges in the format "YYYY-MM-DD to YYYY-MM-DD".
    * @returns {boolean} - Returns true if today is within any date range, otherwise false.
    */
@@ -274,7 +277,7 @@ Module.register("MMM-DynamicWeather", {
           }
         } else {
           //if the month and date match or the month, date and year match
-          if (this.now.getMonth() == effectMonth && this.now.getDate() == effect.day) {
+          if (this.now.getMonth() == effectMonth && this.now.getDate() == effect.getDay()) {
             if (effect.getYear() == 0 || this.now.getFullYear() == effect.getYear()) {
               this.hasDateEffectsToDisplay = true;
               effect.doDisplay = true;
@@ -286,7 +289,12 @@ Module.register("MMM-DynamicWeather", {
               effect.doDisplay = true;
             }
           } else if (effect.recurrence == "weekly") {
-            let effectDay = new Date(effect.getYear(), effectMonth, effect.getDay());
+            if (effect.getMonth() === 0 || effect.getDay() === 0) {
+              console.warn("[MMM-DynamicWeather] Weekly recurrence requires month/day to be set (month 1-12, day 1-31). Skipping effect:", effect);
+              return;
+            }
+            const yearForDow = effect.getYear() === 0 ? this.now.getFullYear() : effect.getYear();
+            let effectDay = new Date(yearForDow, effectMonth, effect.getDay());
             if (this.now.getDay() == effectDay.getDay()) {
               this.hasDateEffectsToDisplay = true;
               effect.doDisplay = true;
@@ -301,8 +309,8 @@ Module.register("MMM-DynamicWeather", {
 
   getDom: function () {
     let wrapper = document.createElement("div");
-    wrapper.style.zIndex = this.config.zIndex;
-    wrapper.style.opacity = this.config.opacity;
+    wrapper.style.zIndex = String(this.config.zIndex);
+    wrapper.style.opacity = String(this.config.opacity);
     wrapper.className = "wrapper";
     try {
       //setup the fade-out animation
@@ -495,7 +503,7 @@ Module.register("MMM-DynamicWeather", {
       let picIndex = Math.floor(Math.random() * (maxNum - 0) + 0);
       flakeImage.style.backgroundImage = "url('./modules/MMM-DynamicWeather/images/" + effect.images[picIndex] + "')";
       flakeImage.style.transform = "scale(" + size + ", " + size + ")";
-      flakeImage.style.opacity = size;
+      flakeImage.style.opacity = String(size);
 
       flake = document.createElement("div");
       var animationName;
@@ -543,7 +551,7 @@ Module.register("MMM-DynamicWeather", {
 
       size = Math.random() * 0.75 + 0.25;
       jiggle.style.transform = "scale(" + size + ", " + size + ")";
-      jiggle.style.opacity = size;
+      jiggle.style.opacity = String(size);
       if (animationName) {
         jiggle.style.animationName = animationName;
       }
@@ -623,11 +631,11 @@ Module.register("MMM-DynamicWeather", {
 
     let lightningImage1 = document.createElement("div");
     lightningImage1.classList.add("lightning1");
-    lightningImage1.style.animationIterationCount = this.config.lightning1Count;
+    lightningImage1.style.animationIterationCount = String(this.config.lightning1Count);
 
     let lightningImage2 = document.createElement("div");
     lightningImage2.classList.add("lightning2");
-    lightningImage2.style.animationIterationCount = this.config.lightning2Count;
+    lightningImage2.style.animationIterationCount = String(this.config.lightning2Count);
 
     let lightningPlayer = document.createElement("div");
     lightningPlayer.classList.add("lightningPlayer");
@@ -790,13 +798,19 @@ Module.register("MMM-DynamicWeather", {
   parseHolidays: function (body: string) {
     let today = new Date();
     let todayHolidays = [];
-    todayHolidays.push("test");
 
     try {
       let parser = new DOMParser();
       let doc = parser.parseFromString(body, "text/html");
 
-      let children = doc.getElementById("holidays-table").children[1].children;
+      const table = doc.getElementById("holidays-table");
+      if (!table || !table.children || table.children.length < 2) {
+        console.warn("[MMM-DynamicWeather] Holidays table not found or unexpected format.");
+        return todayHolidays;
+      }
+
+      const tbody = table.children[1] as HTMLElement;
+      const children = (tbody && (tbody as any).children) ? (tbody as any).children : [];
       for (let i = 0; i < children.length; i++) {
         let child1 = children[i];
         if (child1.hasAttribute("data-date")) {
